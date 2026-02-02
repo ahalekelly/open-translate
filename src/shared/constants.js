@@ -150,7 +150,7 @@ const DOM_SELECTORS = {
 
 // Regular expressions
 const REGEX_PATTERNS = {
-  PURE_NUMBERS_SYMBOLS: /^[\d\s\W]*$/,
+  PURE_NUMBERS_SYMBOLS: /^[\d\s\p{P}\p{S}]+$/u,
   CHINESE_CHARS: /[\u4e00-\u9fff\u3400-\u4dbf]/,
   TECHNICAL_CONTENT: [
     /\b(API|HTTP|JSON|XML|CSS|HTML|JavaScript|Python|Java|SQL)\b/i,
