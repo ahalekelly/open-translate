@@ -323,8 +323,9 @@ class TranslationService {
    * Build system prompt (role definition and rules)
    */
   buildSystemPrompt(targetLang, options = {}, text = '') {
+    const languageName = this.normalizeTargetLanguage(targetLang);
     const baseInstructions = [
-      `You are an expert ${targetLang} translator with native-level fluency and deep cultural understanding.`,
+      `You are an expert ${languageName} translator with native-level fluency and deep cultural understanding.`,
       '',
       '## Core Translation Principles',
       '1. NATURALNESS: Create translations that sound native, using natural phrasing and idiomatic expressions',
@@ -362,7 +363,7 @@ class TranslationService {
     const contextSection = this.buildContextSection(options);
 
     // Add language-specific instructions
-    const specificInstructions = this.getLanguageSpecificInstructions(targetLang);
+    const specificInstructions = this.getLanguageSpecificInstructions(languageName);
 
     // Add technical content instructions if needed
     const technicalInstructions = this.getTechnicalInstructions(options.text || text);
@@ -373,13 +374,21 @@ class TranslationService {
   }
 
   /**
+   * Normalize target language for prompts (map language codes to readable names)
+   */
+  normalizeTargetLanguage(targetLang) {
+    return LANGUAGE_MAP[targetLang] || targetLang;
+  }
+
+  /**
    * Build user prompt (actual translation request)
    */
   buildUserPrompt(text, targetLang) {
+    const languageName = this.normalizeTargetLanguage(targetLang);
     // 对用户输入的文本进行基本的安全检查
     const sanitizedText = this.sanitizeTranslationText(text);
 
-    return `Please translate the following text to ${targetLang}.
+    return `Please translate the following text to ${languageName}.
 Provide a natural, fluent translation that reads well in the target language:
 
 ${sanitizedText}`;
@@ -520,6 +529,7 @@ ${sanitizedText}`;
     if (targetLang === 'English') {
       instructions.push('');
       instructions.push('English-specific requirements:');
+      instructions.push('- Output does not contain any Chinese, Japanese, Korean, or other non-Latin characters');
       instructions.push('- Use American English spelling and conventions unless context suggests otherwise');
       instructions.push('- Maintain appropriate register (formal/informal) based on source text');
       instructions.push('- Use natural English sentence structures and idiomatic expressions');
@@ -887,19 +897,20 @@ ${sanitizedText}`;
    * Build prompt for merged translation
    */
   buildMergedTranslationPrompt(batch, targetLang, sourceLang, options = {}) {
+    const languageName = this.normalizeTargetLanguage(targetLang);
     const baseInstructions = [
-      `You are a professional ${targetLang} native translator with excellent linguistic skills.`,
+      `You are a professional ${languageName} native translator with excellent linguistic skills.`,
       '',
       'Translation Excellence Requirements:',
-      '1. PRIORITY: Create natural, fluent translations that sound like native ${targetLang} writing',
-      '2. Avoid literal word-for-word translations - use natural ${targetLang} expressions',
-      '3. Maintain the original meaning and intent while adapting to ${targetLang} linguistic patterns',
-      '4. Use idiomatic expressions and natural sentence structures of ${targetLang}',
+      `1. PRIORITY: Create natural, fluent translations that sound like native ${languageName} writing`,
+      `2. Avoid literal word-for-word translations - use natural ${languageName} expressions`,
+      `3. Maintain the original meaning and intent while adapting to ${languageName} linguistic patterns`,
+      `4. Use idiomatic expressions and natural sentence structures of ${languageName}`,
       '5. Preserve technical terms, proper nouns, and brand names when appropriate',
       '6. Return translations in the same numbered format as the input',
       '7. Each translation should be on a separate line with its corresponding number',
       '8. Only return the numbered translations without any additional text or commentary',
-      '9. Ensure excellent readability and natural flow in ${targetLang}',
+      `9. Ensure excellent readability and natural flow in ${languageName}`,
       '10. When translating to Chinese, always add a space between Chinese text and English words/numbers'
     ];
 
@@ -922,7 +933,7 @@ ${sanitizedText}`;
       baseInstructions.push('15. Do not add, remove, or modify any HTML tags or attributes');
     }
 
-    const specificInstructions = this.getLanguageSpecificInstructions(targetLang);
+    const specificInstructions = this.getLanguageSpecificInstructions(languageName);
     const fullInstructions = [...baseInstructions, ...specificInstructions];
 
     // Create numbered text segments
@@ -1160,8 +1171,9 @@ Translations:`;
    * 构建批次系统提示词
    */
   buildSmartBatchSystemPrompt(targetLang, options = {}) {
+    const languageName = this.normalizeTargetLanguage(targetLang);
     const baseInstructions = [
-      `You are a professional ${targetLang} native translator with exceptional linguistic skills and cultural understanding.`,
+      `You are a professional ${languageName} native translator with exceptional linguistic skills and cultural understanding.`,
       '',
       '## Smart Batch Translation Principles',
       '1. CONSISTENCY: Maintain consistent terminology and style across all segments in the batch',
@@ -1180,7 +1192,7 @@ Translations:`;
     ];
 
     // 添加语言特定指令
-    const specificInstructions = this.getLanguageSpecificInstructions(targetLang);
+    const specificInstructions = this.getLanguageSpecificInstructions(languageName);
 
     return [...baseInstructions, ...specificInstructions].join('\n');
   }
@@ -1189,12 +1201,13 @@ Translations:`;
    * 构建批次用户提示词
    */
   buildSmartBatchUserPrompt(batch, targetLang) {
+    const languageName = this.normalizeTargetLanguage(targetLang);
     // 创建编号的文本段落
     const numberedTexts = batch.map((group, index) =>
       `${index + 1}. ${group.combinedText || group.text || ''}`
     ).join('\n');
 
-    return `Translate the following ${batch.length} text segments to ${targetLang}:
+    return `Translate the following ${batch.length} text segments to ${languageName}:
 
 ${numberedTexts}
 
@@ -1521,8 +1534,9 @@ Translations:`;
    * Build system prompt for merged group translation
    */
   buildMergedGroupSystemPrompt(targetLang, options = {}) {
+    const languageName = this.normalizeTargetLanguage(targetLang);
     const baseInstructions = [
-      `You are an expert ${targetLang} translator with native-level fluency and deep cultural understanding.`,
+      `You are an expert ${languageName} translator with native-level fluency and deep cultural understanding.`,
       '',
       '## Core Translation Principles',
       '1. NATURALNESS: Create translations that sound native, using natural phrasing and idiomatic expressions',
@@ -1536,11 +1550,11 @@ Translations:`;
       '7. Maintain paragraph structure when appropriate',
       '8. For HTML content: Preserve tags but focus on natural text translation',
       '9. Maintain consistency in terminology across all segments',
-      '10. Ensure excellent flow and natural expression in ${targetLang}'
+      `10. Ensure excellent flow and natural expression in ${languageName}`
     ];
 
     // Add language-specific instructions
-    const specificInstructions = this.getLanguageSpecificInstructions(targetLang);
+    const specificInstructions = this.getLanguageSpecificInstructions(languageName);
 
     return [...baseInstructions, ...specificInstructions].join('\n');
   }
@@ -1549,15 +1563,16 @@ Translations:`;
    * Build system prompt for multiple paragraph translation
    */
   buildMultipleSystemPrompt(targetLang, options = {}) {
+    const languageName = this.normalizeTargetLanguage(targetLang);
     const baseInstructions = [
-      `You are a professional ${targetLang} native translator with exceptional linguistic skills and cultural understanding.`,
+      `You are a professional ${languageName} native translator with exceptional linguistic skills and cultural understanding.`,
       '',
       '## Translation Excellence Principles',
-      '1. PRIORITY: Create natural, fluent translations that read like native ${targetLang} content',
-      '2. Avoid literal translations - use natural ${targetLang} expressions and sentence patterns',
-      '3. Adapt content to ${targetLang} linguistic and cultural conventions',
-      '4. Use idiomatic expressions and natural word order of ${targetLang}',
-      '5. Maintain the original meaning and intent while optimizing for ${targetLang} readability',
+      `1. PRIORITY: Create natural, fluent translations that read like native ${languageName} content`,
+      `2. Avoid literal translations - use natural ${languageName} expressions and sentence patterns`,
+      `3. Adapt content to ${languageName} linguistic and cultural conventions`,
+      `4. Use idiomatic expressions and natural word order of ${languageName}`,
+      `5. Maintain the original meaning and intent while optimizing for ${languageName} readability`,
       '',
       '## Output Requirements',
       '6. Output only the translated content, without explanations or additional text',
@@ -1565,7 +1580,7 @@ Translations:`;
       '8. Each translation should be on a separate line with its corresponding number',
       '9. Only return the numbered translations without any additional commentary',
       '10. Maintain consistency in terminology across all segments',
-      '11. Ensure excellent flow and natural expression in ${targetLang}'
+      `11. Ensure excellent flow and natural expression in ${languageName}`
     ];
 
     // Add context awareness section
@@ -1575,7 +1590,7 @@ Translations:`;
     const formatExamples = this.buildFormatExamples();
 
     // Add language-specific instructions
-    const specificInstructions = this.getLanguageSpecificInstructions(targetLang);
+    const specificInstructions = this.getLanguageSpecificInstructions(languageName);
 
     const allInstructions = [...baseInstructions, ...contextSection, ...formatExamples, ...specificInstructions];
 
@@ -1586,10 +1601,11 @@ Translations:`;
    * Build user prompt for multiple paragraph translation
    */
   buildMultipleUserPrompt(batch, targetLang) {
+    const languageName = this.normalizeTargetLanguage(targetLang);
     // Create numbered text segments from paragraph groups
     const numberedTexts = batch.map((group, index) => `${index + 1}. ${group.combinedText}`).join('\n');
 
-    return `Translate to ${targetLang}:
+    return `Translate to ${languageName}:
 
 ${numberedTexts}`;
   }
