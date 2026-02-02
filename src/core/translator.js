@@ -600,6 +600,8 @@ ${sanitizedText}`;
   async makeAPIRequest(prompt, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+    const model = this.getCurrentModel();
+    const modelClass = this.getModelClass(model);
 
     try {
       // 系统消息和用户消息分离，以加强 LLM 的注意力
@@ -631,18 +633,29 @@ ${sanitizedText}`;
         ];
       }
 
+      const requestBody = {
+        model: model,
+        messages: messages
+      };
+
+      if (modelClass === 'gpt-5') {
+        requestBody.max_completion_tokens = this.config.maxTokens;
+        requestBody.reasoning_effort = 'minimal';
+      } else {
+        requestBody.max_tokens = this.config.maxTokens;
+      }
+
+      if (modelClass !== 'gpt-5') {
+        requestBody.temperature = this.config.temperature;
+      }
+
       const response = await fetch(this.config.apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.config.apiKey}`
         },
-        body: JSON.stringify({
-          model: this.getCurrentModel(),
-          messages: messages,
-          temperature: this.config.temperature,
-          max_tokens: this.config.maxTokens
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal
       });
 
@@ -677,6 +690,16 @@ ${sanitizedText}`;
         throw error;
       }
     }
+  }
+
+  /**
+   * Determine model class for request behavior
+   */
+  getModelClass(model) {
+    if (typeof model === 'string' && model.toLowerCase().startsWith('gpt-5')) {
+      return 'gpt-5';
+    }
+    return 'default';
   }
 
   /**

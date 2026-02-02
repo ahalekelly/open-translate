@@ -271,7 +271,14 @@ async function testApiConnection() {
       throw new ConfigurationError(ERROR_MESSAGES.API_KEY_MISSING);
     }
 
-    // Test with a simple translation request
+    const selectedModel = config.customModel || config.model || (typeof getAPIDefault === 'function' ? getAPIDefault('MODEL') : '');
+    const modelClass = (typeof selectedModel === 'string' && selectedModel.toLowerCase().startsWith('gpt-5'))
+      ? 'gpt-5'
+      : 'default';
+    if (!selectedModel) {
+      throw new ConfigurationError(ERROR_MESSAGES.TRANSLATION_FAILED);
+    }
+
     const response = await fetch(config.apiUrl, {
       method: 'POST',
       headers: {
@@ -279,7 +286,7 @@ async function testApiConnection() {
         'Authorization': `Bearer ${config.apiKey}`
       },
       body: JSON.stringify({
-        model: config.model,
+        model: selectedModel,
         messages: [
           {
             role: 'user',
@@ -295,8 +302,9 @@ Hello
 Translation:`
           }
         ],
-        temperature: config.temperature,
-        max_tokens: 50
+        ...(modelClass === 'gpt-5'
+          ? { max_completion_tokens: 50, reasoning_effort: 'minimal' }
+          : { max_tokens: 50, temperature: config.temperature })
       }),
       signal: AbortSignal.timeout(config.timeout)
     });
@@ -406,8 +414,13 @@ function populateModelSelect(models) {
   if (models && models.length > 0) {
     models.forEach(model => {
       const option = document.createElement('option');
-      option.value = model.id;
-      option.textContent = model.owned_by ? `${model.name} (${model.owned_by})` : model.name;
+      if (model && typeof model === 'object') {
+        option.value = model.id;
+        option.textContent = model.owned_by ? `${model.name} (${model.owned_by})` : model.name;
+      } else {
+        option.value = model;
+        option.textContent = model;
+      }
       modelSelect.appendChild(option);
     });
   } else {

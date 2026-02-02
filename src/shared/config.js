@@ -236,8 +236,14 @@ class ConfigManager {
    * Save available models to storage
    */
   async saveAvailableModels(models, apiUrl) {
+    const compactModels = Array.isArray(models)
+      ? models
+          .map(model => (model && typeof model === 'object' ? model.id : model))
+          .filter(Boolean)
+      : [];
+
     const modelData = {
-      models: models,
+      models: compactModels,
       lastUpdated: Date.now(),
       apiUrl: apiUrl
     };
