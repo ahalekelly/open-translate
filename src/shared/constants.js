@@ -58,7 +58,7 @@ const TRANSLATION_MODES = {
 // API configuration
 const API_DEFAULTS = {
   URL: 'https://api.openai.com/v1/chat/completions',
-  MODEL: 'gpt-3.5-turbo',
+  MODEL: 'gpt-5-nano',
   TEMPERATURE: 0.5,
   MAX_TOKENS: 8000,
   TIMEOUT: 30000
@@ -71,7 +71,7 @@ const API_DEFAULTS = {
 function getAPIDefaults() {
   return (typeof API_DEFAULTS !== 'undefined') ? API_DEFAULTS : {
     URL: 'https://api.openai.com/v1/chat/completions',
-    MODEL: 'gpt-3.5-turbo',
+    MODEL: 'gpt-5-nano',
     TEMPERATURE: 0.5,
     MAX_TOKENS: 8000,
     TIMEOUT: 30000

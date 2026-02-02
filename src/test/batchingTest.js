@@ -157,7 +157,7 @@ function runBatchingComparison() {
     maxMergedLength: 1000,
     maxMergedCount: 10,
     shortTextThreshold: 50,
-    model: 'gpt-3.5-turbo'
+    model: 'gpt-5-nano'
   };
   
   console.log('测试配置:', testConfig);

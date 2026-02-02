@@ -9,7 +9,7 @@ class ConfigManager {
       translationConfig: {
         apiUrl: 'https://api.openai.com/v1/chat/completions',
         apiKey: '',
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-5-nano',
         customModel: '',
         temperature: 0.5,
         maxTokens: getAPIDefault('MAX_TOKENS', 8000),
