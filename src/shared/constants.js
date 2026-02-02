@@ -60,8 +60,8 @@ const API_DEFAULTS = {
   URL: 'https://api.openai.com/v1/chat/completions',
   MODEL: 'gpt-5-nano',
   TEMPERATURE: 0.5,
-  MAX_TOKENS: 8000,
-  TIMEOUT: 30000
+  MAX_TOKENS: 4000,
+  TIMEOUT: 10000
 };
 
 /**
@@ -73,8 +73,8 @@ function getAPIDefaults() {
     URL: 'https://api.openai.com/v1/chat/completions',
     MODEL: 'gpt-5-nano',
     TEMPERATURE: 0.5,
-    MAX_TOKENS: 8000,
-    TIMEOUT: 30000
+    MAX_TOKENS: 4000,
+    TIMEOUT: 10000
   };
 }
 
