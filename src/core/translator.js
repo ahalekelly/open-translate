@@ -815,21 +815,29 @@ ${sanitizedText}`;
    */
   async processMergedShortTexts(shortTexts, targetLanguage, sourceLanguage, mergeConfig, options = {}) {
     const mergedBatches = this.createMergedBatches(shortTexts, mergeConfig);
-    const results = [];
-
-    for (const batch of mergedBatches) {
-      try {
-        const mergedTranslation = await this.translateMergedBatch(batch, targetLanguage, sourceLanguage, options);
-        const splitResults = this.splitMergedTranslation(batch, mergedTranslation);
-        results.push(...splitResults);
-      } catch (error) {
-        // Fallback to individual translation on merge failure
-        const fallbackResults = await this.fallbackToIndividualTranslation(batch, targetLanguage, sourceLanguage);
-        results.push(...fallbackResults);
-      }
+    if (mergedBatches.length === 0) {
+      return [];
     }
 
-    return results;
+    const concurrency = Math.max(1, this.config.batchSize || 5);
+    const semaphore = new ConcurrencySemaphore(concurrency);
+
+    const batchTasks = mergedBatches.map((batch) =>
+      semaphore.acquire().then(async (release) => {
+        try {
+          const mergedTranslation = await this.translateMergedBatch(batch, targetLanguage, sourceLanguage, options);
+          return this.splitMergedTranslation(batch, mergedTranslation);
+        } catch (error) {
+          // Fallback to individual translation on merge failure
+          return await this.fallbackToIndividualTranslation(batch, targetLanguage, sourceLanguage);
+        } finally {
+          release();
+        }
+      })
+    );
+
+    const batchResults = await Promise.all(batchTasks);
+    return batchResults.flat();
   }
 
   /**
@@ -1043,39 +1051,48 @@ Translations:`;
       });
 
       const results = [];
+      const concurrency = Math.max(1, this.config.batchSize || 5);
+      const semaphore = new ConcurrencySemaphore(concurrency);
+      const progressWithCounts = progressCallback ? (result) => {
+        processedCount++;
+        progressCallback(result, processedCount, totalGroups);
+      } : null;
 
-      // 处理每个批次
-      for (const batch of batchResult.batches) {
-        try {
-          let batchResults;
+      // 处理每个批次（并发受限）
+      const batchTasks = batchResult.batches.map((batch) =>
+        semaphore.acquire().then(async (release) => {
+          try {
+            let batchResults;
 
-          if (batch.length === 1) {
-            // 单个项目直接翻译
-            batchResults = await this.translateSingleGroup(batch[0], targetLanguage, sourceLanguage, options);
-          } else {
-            // 多个项目合并翻译
-            batchResults = await this.translateSmartBatch(batch, targetLanguage, sourceLanguage, options);
-          }
-
-          // 处理批次结果
-          for (const result of batchResults) {
-            results.push(result);
-            processedCount++;
-
-            if (progressCallback) {
-              progressCallback(result, processedCount, totalGroups);
+            if (batch.length === 1) {
+              // 单个项目直接翻译
+              batchResults = await this.translateSingleGroup(batch[0], targetLanguage, sourceLanguage, options);
+            } else {
+              // 多个项目合并翻译
+              batchResults = await this.translateSmartBatch(batch, targetLanguage, sourceLanguage, options);
             }
+
+            // 处理批次结果
+            if (progressWithCounts) {
+              for (const result of batchResults) {
+                progressWithCounts(result);
+              }
+            }
+
+            return batchResults;
+          } catch (error) {
+            console.warn('[SmartBatching] Batch failed, falling back to individual translation:', error);
+
+            // 回退到逐个翻译
+            return await this.fallbackToIndividualGroupTranslation(batch, targetLanguage, sourceLanguage, progressWithCounts);
+          } finally {
+            release();
           }
+        })
+      );
 
-        } catch (error) {
-          console.warn('[SmartBatching] Batch failed, falling back to individual translation:', error);
-
-          // 回退到逐个翻译
-          const fallbackResults = await this.fallbackToIndividualGroupTranslation(batch, targetLanguage, sourceLanguage, progressCallback);
-          results.push(...fallbackResults);
-          processedCount += batch.length;
-        }
-      }
+      const batchResults = await Promise.all(batchTasks);
+      results.push(...batchResults.flat());
 
       // 按原始顺序排序
       results.sort((a, b) => a.batchIndex - b.batchIndex);
@@ -1382,25 +1399,44 @@ Translations:`;
   async processMergedParagraphGroups(shortGroups, targetLanguage, sourceLanguage, progressCallback, options = {}) {
     const mergeConfig = this.getMergeConfig();
     const mergedBatches = this.createMergedGroupBatches(shortGroups, mergeConfig);
-    const results = [];
-
-    for (const batch of mergedBatches) {
-      try {
-        const mergedTranslation = await this.translateMergedGroupBatch(batch, targetLanguage, options);
-        const splitResults = this.splitMergedGroupTranslation(batch, mergedTranslation);
-
-        // Call progress callback for each result
-        for (const result of splitResults) {
-          results.push(result);
-          if (progressCallback) {
-            progressCallback(result, results.length, shortGroups.length);
-          }
-        }
-      } catch (error) {
-        const fallbackResults = await this.fallbackToIndividualGroupTranslation(batch, targetLanguage, sourceLanguage, progressCallback);
-        results.push(...fallbackResults);
-      }
+    if (mergedBatches.length === 0) {
+      return [];
     }
+
+    const results = [];
+    const concurrency = Math.max(1, this.config.batchSize || 5);
+    const semaphore = new ConcurrencySemaphore(concurrency);
+    const totalGroups = shortGroups.length;
+    let processedCount = 0;
+    const progressWithCounts = progressCallback ? (result) => {
+      processedCount++;
+      progressCallback(result, processedCount, totalGroups);
+    } : null;
+
+    const batchTasks = mergedBatches.map((batch) =>
+      semaphore.acquire().then(async (release) => {
+        try {
+          const mergedTranslation = await this.translateMergedGroupBatch(batch, targetLanguage, options);
+          const splitResults = this.splitMergedGroupTranslation(batch, mergedTranslation);
+
+          // Call progress callback for each result
+          if (progressWithCounts) {
+            for (const result of splitResults) {
+              progressWithCounts(result);
+            }
+          }
+
+          return splitResults;
+        } catch (error) {
+          return await this.fallbackToIndividualGroupTranslation(batch, targetLanguage, sourceLanguage, progressWithCounts);
+        } finally {
+          release();
+        }
+      })
+    );
+
+    const batchResults = await Promise.all(batchTasks);
+    results.push(...batchResults.flat());
 
     return results;
   }
